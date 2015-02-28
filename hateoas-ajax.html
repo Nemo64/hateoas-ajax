@@ -1,0 +1,74 @@
+<link rel="import" href="../polymer/polymer.html"/>
+<link rel="import" href="../core-ajax/core-ajax.html"/>
+
+<polymer-element hidden name="hateoas-ajax" extends="core-ajax" attributes="linkProperty, embeddedProperty">
+    <script>
+        //noinspection JSUnusedGlobalSymbols
+        Polymer({
+            linkProperty: '_links',
+            embeddedProperty: '_embedded',
+
+            createSubInstance: function () {
+                var request = document.createElement(this.nodeName);
+                request.linkProperty = this.linkProperty;
+                request.embeddedProperty = this.embeddedProperty;
+                request.handleAs = this.handleAs;
+                return request;
+            },
+
+            responseChanged: function (oldValue, newValue) {
+                if (newValue instanceof Array) {
+                    newValue.forEach(this._attachMagic, this);
+                } else if (newValue instanceof Object) {
+                    this._attachMagic(newValue);
+                }
+            },
+
+            _attachMagic: function (object) {
+                var links = object[this.linkProperty];
+                if (links instanceof Object) {
+                    this._attachLinkProperties(object, links);
+                }
+            },
+
+            _attachLinkProperties: function (object, links) {
+                var linkProperties = Object.keys(links);
+
+                linkProperties.forEach(function (linkProperty) {
+                    if (linkProperty in object) {
+                        return;
+                    }
+
+                    var isStarted = false;
+                    var request = this.createSubInstance();
+                    request.url = links[linkProperty].href;
+
+                    // replace by value after the request is done
+                    request.addEventListener('core-complete', function () {
+                        object[linkProperty] = request.response;
+                    });
+
+                    // define a getter to trigger the request
+                    Object.defineProperty(object, linkProperty, {
+                        enumerable: true,
+                        configurable: true,
+                        get: function () {
+                            if (!isStarted) {
+                                request.go();
+                                isStarted = true;
+                            }
+
+                            return null
+                        },
+                        set: function (value) {
+                            request.abort();
+
+                            delete this[linkProperty];
+                            this[linkProperty] = value;
+                        }
+                    })
+                }, this);
+            }
+        });
+    </script>
+</polymer-element>
