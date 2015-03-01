@@ -7,67 +7,153 @@
         Polymer({
             linkProperty: '_links',
             embeddedProperty: '_embedded',
+            handleAs: 'json',
 
             createSubInstance: function () {
                 var request = document.createElement(this.nodeName);
                 request.linkProperty = this.linkProperty;
                 request.embeddedProperty = this.embeddedProperty;
                 request.handleAs = this.handleAs;
+                request.headers = this.headers;
+                request.contentType = this.contentType;
+                request.auto = false;
                 return request;
             },
 
             responseChanged: function (oldValue, newValue) {
                 if (newValue instanceof Array) {
-                    newValue.forEach(this._attachMagic, this);
+                    newValue.forEach(this._modifyObject, this);
                 } else if (newValue instanceof Object) {
-                    this._attachMagic(newValue);
+                    this._modifyObject(newValue);
                 }
             },
 
-            _attachMagic: function (object) {
+            _modifyObject: function (object) {
+                this._processLinkProperties(object);
+            },
+
+            _processLinkProperties: function (object) {
                 var links = object[this.linkProperty];
-                if (links instanceof Object) {
-                    this._attachLinkProperties(object, links);
+                if (!links instanceof Object) {
+                    return;
                 }
-            },
 
-            _attachLinkProperties: function (object, links) {
-                var linkProperties = Object.keys(links);
+                // hide the property as it is not really a value
+                delete object[this.linkProperty];
+                Object.defineProperty(object, this.linkProperty, {
+                    enumerable: false,
+                    configurable: false,
+                    value: links
+                });
 
-                linkProperties.forEach(function (linkProperty) {
+                Object.keys(links).forEach(function (linkProperty) {
                     if (linkProperty in object) {
                         return;
                     }
 
-                    var isStarted = false;
-                    var request = this.createSubInstance();
-                    request.url = links[linkProperty].href;
+                    var attributes = links[linkProperty];
+                    this._createLinkGetMethod(object, linkProperty, attributes);
+                    this._createLinkPutMethod(object, linkProperty, attributes);
+                    this._createLinkPostMethod(object, linkProperty, attributes);
+                    this._createLinkDeleteMethod(object, linkProperty, attributes);
 
-                    // replace by value after the request is done
-                    request.addEventListener('core-complete', function () {
-                        object[linkProperty] = request.response;
-                    });
-
-                    // define a getter to trigger the request
-                    Object.defineProperty(object, linkProperty, {
-                        enumerable: true,
-                        configurable: true,
-                        get: function () {
-                            if (!isStarted) {
-                                request.go();
-                                isStarted = true;
-                            }
-
-                            return null
-                        },
-                        set: function (value) {
-                            request.abort();
-
-                            delete this[linkProperty];
-                            this[linkProperty] = value;
-                        }
-                    })
                 }, this);
+            },
+
+            _createLinkGetMethod: function (object, name, attributes) {
+                var isRequestStarted = false;
+                var request = null;
+                var initiator = this;
+
+                // define a getter to trigger the request
+                Object.defineProperty(object, name, {
+                    enumerable: false,
+                    configurable: true,
+                    get: function () {
+                        if (isRequestStarted) {
+                            return null;
+                        }
+
+                        request = initiator.createSubInstance();
+                        request.url = attributes.href;
+                        request.method = 'get';
+
+                        // replace by value after the request is done
+                        request.addEventListener('core-complete', function () {
+                            Object.defineProperty(object, name, {
+                                enumerable: false,
+                                configurable: true,
+                                value: request.response
+                            });
+                        });
+
+                        request.go();
+                        isRequestStarted = true;
+
+                        return null;
+                    },
+                    set: function (value) {
+                        request.abort();
+
+                        delete this[name];
+                        this[name] = value;
+                    }
+                });
+            },
+
+            _createLinkPostMethod: function (object, name, attributes) {
+                this._createLinkBodyMethod('post', object, name, attributes);
+            },
+
+            _createLinkPutMethod: function (object, name, attributes) {
+                this._createLinkBodyMethod('put', object, name, attributes);
+            },
+
+            _composeMethodName: function (method, name) {
+                return method + name.substr(0, 1).toUpperCase() + name.substr(1);
+            },
+
+            _createLinkBodyMethod: function (method, object, name, attributes) {
+                var methodName = this._composeMethodName(method, name);
+                var initiator = this;
+
+                Object.defineProperty(object, methodName, {
+                    enumerable: false,
+                    configurable: false,
+                    value: function (data) {
+                        var request = initiator.createSubInstance();
+                        request.url = attributes.href;
+                        request.method = method;
+                        request.contentType = 'application/json';
+                        request.body = JSON.stringify(data);
+                        request.go();
+
+                        // todo: if this name was already used for get, it can be automatically updated
+
+                        return request;
+                    }
+                });
+            },
+
+            _createLinkDeleteMethod: function (object, name, attributes) {
+                var methodName = this._composeMethodName('delete', name);
+                var initiator = this;
+
+                Object.defineProperty(object, methodName, {
+                    enumerable: false,
+                    configurable: false,
+                    value: function (data) {
+                        var request = initiator.createSubInstance();
+                        request.url = attributes.href;
+                        request.method = 'delete';
+                        request.params = data;
+                        request.go();
+
+                        // todo: if this name was already used for get, it should be deleted
+
+                        return request;
+                    }
+                });
             }
         });
     </script>
