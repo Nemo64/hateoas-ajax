@@ -21,32 +21,71 @@
             },
 
             responseChanged: function (oldValue, newValue) {
-                if (newValue instanceof Array) {
-                    newValue.forEach(this._modifyObject, this);
-                } else if (newValue instanceof Object) {
-                    this._modifyObject(newValue);
+                this.process(newValue);
+            },
+
+            process: function (value) {
+                if (value instanceof Array) {
+                    value.forEach(this._modifyObject, this);
+                } else if (value instanceof Object) {
+                    this._modifyObject(value);
                 }
             },
 
             _modifyObject: function (object) {
+                this._processEmbeddedProperties(object);
                 this._processLinkProperties(object);
             },
 
-            _processLinkProperties: function (object) {
-                var links = object[this.linkProperty];
-                if (!links instanceof Object) {
+            _hideProperty: function (object, property) {
+                var value = object[property];
+
+                delete object[property];
+                Object.defineProperty(object, property, {
+                    enumerable: false,
+                    configurable: false,
+                    value: value
+                });
+            },
+
+            _processEmbeddedProperties: function (object) {
+                var embedded = object[this.embeddedProperty];
+                if (!(embedded instanceof Object)) {
                     return;
                 }
 
                 // hide the property as it is not really a value
-                delete object[this.linkProperty];
-                Object.defineProperty(object, this.linkProperty, {
-                    enumerable: false,
-                    configurable: false,
-                    value: links
-                });
+                this._hideProperty(object, this.embeddedProperty);
+
+                Object.keys(embedded).forEach(function (embeddedProperty) {
+
+                    // modify the object as if it were a response
+                    this.process(embedded[embeddedProperty]);
+
+                    // don't overwrite anything
+                    if (embeddedProperty in object) {
+                        return;
+                    }
+
+                    Object.defineProperty(object, embeddedProperty, {
+                        enumerable: false,
+                        configurable: true,
+                        value: embedded[embeddedProperty]
+                    });
+                }, this);
+            },
+
+            _processLinkProperties: function (object) {
+                var links = object[this.linkProperty];
+                if (!(links instanceof Object)) {
+                    return;
+                }
+
+                // hide the property as it is not really a value
+                this._hideProperty(object, this.linkProperty);
 
                 Object.keys(links).forEach(function (linkProperty) {
+                    // don't overwrite anything
                     if (linkProperty in object) {
                         return;
                     }
