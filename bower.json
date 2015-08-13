@@ -2,8 +2,8 @@
   "name": "hateoas-ajax",
   "private": true,
   "dependencies": {
-    "core-icon-button": "Polymer/polymer#^0.5",
-    "core-media-query": "Polymer/core-ajax#^0.5"
+    "polymer": "Polymer/polymer#^1.0.0",
+    "iron-ajax": "hauptsacheNet/iron-ajax"
   },
   "version": "1.0.0"
 }

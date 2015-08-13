@@ -1,26 +1,43 @@
 <link rel="import" href="../polymer/polymer.html"/>
-<link rel="import" href="../core-ajax/core-ajax.html"/>
+<link rel="import" href="../iron-ajax/iron-ajax-behavior.html"/>
 
-<polymer-element hidden name="hateoas-ajax" extends="core-ajax" attributes="linkProperty, embeddedProperty">
+<dom-module id="hateoas-ajax">
     <script>
+
         //noinspection JSUnusedGlobalSymbols
         Polymer({
-            linkProperty: '_links',
-            embeddedProperty: '_embedded',
-            handleAs: 'json',
+            is: 'hateoas-ajax',
+
+            // we want iron ajax behavior
+            behaviors: [Polymer.IronAjaxBehavior],
+
+            properties: {
+
+                linkProperty: {
+                    type: String,
+                    value: '_links'
+                },
+
+                embeddedProperty: {
+                    type: String,
+                    value: '_embedded'
+                }
+            },
+
+            observers: [
+                'responseChanged(lastResponse)'
+            ],
 
             createSubInstance: function () {
                 var request = document.createElement(this.nodeName);
                 request.linkProperty = this.linkProperty;
                 request.embeddedProperty = this.embeddedProperty;
-                request.handleAs = this.handleAs;
                 request.headers = this.headers;
-                request.contentType = this.contentType;
                 request.auto = false;
                 return request;
             },
 
-            responseChanged: function (oldValue, newValue) {
+            responseChanged: function (newValue) {
                 this.process(newValue);
             },
 
@@ -118,15 +135,15 @@
                         request.method = 'get';
 
                         // replace by value after the request is done
-                        request.addEventListener('core-complete', function () {
+                        request.addEventListener('response', function (e) {
                             Object.defineProperty(object, name, {
                                 enumerable: false,
                                 configurable: true,
-                                value: request.response
+                                value: request.lastResponse
                             });
                         });
 
-                        request.go();
+                        request.generateRequest();
                         isRequestStarted = true;
 
                         return null;
@@ -165,9 +182,7 @@
                         request.method = method;
                         request.contentType = 'application/json';
                         request.body = JSON.stringify(data);
-                        request.go();
-
-                        // todo: if this name was already used for get, it can be automatically updated
+                        request.generateRequest();
 
                         return request;
                     }
@@ -186,9 +201,7 @@
                         request.url = attributes.href;
                         request.method = 'delete';
                         request.params = data;
-                        request.go();
-
-                        // todo: if this name was already used for get, it should be deleted
+                        request.generateRequest();
 
                         return request;
                     }
@@ -196,4 +209,4 @@
             }
         });
     </script>
-</polymer-element>
+</dom-module>
