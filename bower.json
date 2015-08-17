@@ -3,7 +3,7 @@
   "private": true,
   "dependencies": {
     "polymer": "Polymer/polymer#^1.0.0",
-    "iron-ajax": "hauptsacheNet/iron-ajax"
+    "iron-ajax": "hauptsacheNet/iron-ajax#9d6935f2e9a32ca7ee2633304c1e2fc7ff42b299"
   },
   "version": "1.0.0"
 }

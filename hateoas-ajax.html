@@ -141,6 +141,7 @@
                                 configurable: true,
                                 value: request.lastResponse
                             });
+                            initiator.notifyPath('lastResponse.' + name, request.lastResponse);
                         });
 
                         request.generateRequest();
