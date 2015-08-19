@@ -1,26 +1,45 @@
 <link rel="import" href="../polymer/polymer.html"/>
-<link rel="import" href="../core-ajax/core-ajax.html"/>
+<link rel="import" href="../iron-ajax/iron-ajax-behavior.html"/>
 
-<polymer-element hidden name="hateoas-ajax" extends="core-ajax" attributes="linkProperty, embeddedProperty">
+<dom-module id="hateoas-ajax">
     <script>
+//        var oldFire = Polymer.Base.fire;
+//        Polymer.Base.fire = function () { console.log(arguments); oldFire.apply(this, arguments); };
+
         //noinspection JSUnusedGlobalSymbols
         Polymer({
-            linkProperty: '_links',
-            embeddedProperty: '_embedded',
-            handleAs: 'json',
+            is: 'hateoas-ajax',
+
+            // we want iron ajax behavior
+            behaviors: [Polymer.IronAjaxBehavior],
+
+            properties: {
+
+                linkProperty: {
+                    type: String,
+                    value: '_links'
+                },
+
+                embeddedProperty: {
+                    type: String,
+                    value: '_embedded'
+                }
+            },
+
+            observers: [
+                'responseChanged(lastResponse)'
+            ],
 
             createSubInstance: function () {
                 var request = document.createElement(this.nodeName);
                 request.linkProperty = this.linkProperty;
                 request.embeddedProperty = this.embeddedProperty;
-                request.handleAs = this.handleAs;
                 request.headers = this.headers;
-                request.contentType = this.contentType;
                 request.auto = false;
                 return request;
             },
 
-            responseChanged: function (oldValue, newValue) {
+            responseChanged: function (newValue) {
                 this.process(newValue);
             },
 
@@ -32,9 +51,9 @@
                 }
             },
 
-            _modifyObject: function (object) {
-                this._processEmbeddedProperties(object);
-                this._processLinkProperties(object);
+            _modifyObject: function (object, index) {
+                this._processEmbeddedProperties(object, index);
+                this._processLinkProperties(object, index);
             },
 
             _hideProperty: function (object, property) {
@@ -75,7 +94,7 @@
                 }, this);
             },
 
-            _processLinkProperties: function (object) {
+            _processLinkProperties: function (object, index) {
                 var links = object[this.linkProperty];
                 if (!(links instanceof Object)) {
                     return;
@@ -91,21 +110,21 @@
                     }
 
                     var attributes = links[linkProperty];
-                    this._createLinkGetMethod(object, linkProperty, attributes);
-                    this._createLinkPutMethod(object, linkProperty, attributes);
-                    this._createLinkPostMethod(object, linkProperty, attributes);
-                    this._createLinkDeleteMethod(object, linkProperty, attributes);
+                    this._createLinkGetMethod(object, index, linkProperty, attributes);
+                    this._createLinkPutMethod(object, index, linkProperty, attributes);
+                    this._createLinkPostMethod(object, index, linkProperty, attributes);
+                    this._createLinkDeleteMethod(object, index, linkProperty, attributes);
 
                 }, this);
             },
 
-            _createLinkGetMethod: function (object, name, attributes) {
+            _createLinkGetMethod: function (object, index, propertyName, attributes) {
                 var isRequestStarted = false;
                 var request = null;
                 var initiator = this;
 
                 // define a getter to trigger the request
-                Object.defineProperty(object, name, {
+                Object.defineProperty(object, propertyName, {
                     enumerable: false,
                     configurable: true,
                     get: function () {
@@ -118,15 +137,28 @@
                         request.method = 'get';
 
                         // replace by value after the request is done
-                        request.addEventListener('core-complete', function () {
-                            Object.defineProperty(object, name, {
+                        request.addEventListener('response', function (e) {
+                            var fullPath = 'lastResponse.';
+                            if (index != null) {
+                                fullPath += index + '.';
+                            }
+                            fullPath += propertyName;
+
+                            Object.defineProperty(object, propertyName, {
                                 enumerable: false,
                                 configurable: true,
-                                value: request.response
+                                value: request.lastResponse
+                            });
+                            initiator.notifyPath(fullPath, request.lastResponse);
+
+                            // also forward future changes
+                            request.addEventListener('last-response-changed', function (e) {
+                                var path = e.detail.path.replace('lastResponse', fullPath);
+                                initiator.notifyPath(path, e.detail.value);
                             });
                         });
 
-                        request.go();
+                        request.generateRequest();
                         isRequestStarted = true;
 
                         return null;
@@ -134,17 +166,17 @@
                     set: function (value) {
                         request.abort();
 
-                        delete this[name];
-                        this[name] = value;
+                        delete this[propertyName];
+                        this[propertyName] = value;
                     }
                 });
             },
 
-            _createLinkPostMethod: function (object, name, attributes) {
+            _createLinkPostMethod: function (object, index, name, attributes) {
                 this._createLinkBodyMethod('post', object, name, attributes);
             },
 
-            _createLinkPutMethod: function (object, name, attributes) {
+            _createLinkPutMethod: function (object, index, name, attributes) {
                 this._createLinkBodyMethod('put', object, name, attributes);
             },
 
@@ -165,16 +197,14 @@
                         request.method = method;
                         request.contentType = 'application/json';
                         request.body = JSON.stringify(data);
-                        request.go();
-
-                        // todo: if this name was already used for get, it can be automatically updated
+                        request.generateRequest();
 
                         return request;
                     }
                 });
             },
 
-            _createLinkDeleteMethod: function (object, name, attributes) {
+            _createLinkDeleteMethod: function (object, index, name, attributes) {
                 var methodName = this._composeMethodName('delete', name);
                 var initiator = this;
 
@@ -186,9 +216,7 @@
                         request.url = attributes.href;
                         request.method = 'delete';
                         request.params = data;
-                        request.go();
-
-                        // todo: if this name was already used for get, it should be deleted
+                        request.generateRequest();
 
                         return request;
                     }
@@ -196,4 +224,4 @@
             }
         });
     </script>
-</polymer-element>
+</dom-module>
