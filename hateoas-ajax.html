@@ -23,11 +23,19 @@
                 embeddedProperty: {
                     type: String,
                     value: '_embedded'
+                },
+
+                /**
+                 * This map remembers all <hateoas-ajax> elements to reusing for get requests with the same uri
+                 */
+                _requestsByUri: {
+                    type: Object,
+                    value: function () { return {} }
                 }
             },
 
             observers: [
-                'responseChanged(lastResponse)'
+                '_process(lastResponse)'
             ],
 
             createSubInstance: function () {
@@ -36,31 +44,81 @@
                 request.embeddedProperty = this.embeddedProperty;
                 request.headers = this.headers;
                 request.auto = false;
+                request._requestsByUri = this._requestsByUri;
                 return request;
             },
 
-            responseChanged: function (newValue) {
-                this.process(newValue);
-            },
-
-            process: function (value) {
-                if (value instanceof Array) {
-                    value.forEach(this._modifyObject, this);
-                } else if (value instanceof Object) {
-                    this._modifyObject(value);
+            _process: function (value) {
+                if (value.__doNotProcess__) {
+                    return;
                 }
+
+                if (value instanceof Array) {
+                    value = value.map(this._modifyObject, this);
+                } else if (value instanceof Object) {
+                    value = this._modifyObject(value);
+                }
+
+                // prevent this value to be processed again while setting
+                value.__doNotProcess__ = true;
+                this._setLastResponse(value);
+                delete value.__doNotProcess__;
             },
 
             _modifyObject: function (object, index) {
+                var identifier = this._getObjectSelfLink(object);
+
+                // if this object is already possessed by another ajax element
+                var identifierExists = identifier && this._requestsByUri.hasOwnProperty(identifier);
+                if (identifierExists && this._objectMap[identifier] !== this) {
+                    var ajax = this._objectMap[identifier];
+
+                    if (ajax.lastResponse != null) {
+                        // if the already known ajax instance has an object already update it with the new data
+                        this._updateObject(object, index);
+                        return ajax.lastResponse;
+                    } else {
+                        // if not, fake a request success and set the new object
+                        // the ajax element will process it for us
+                        ajax._setLastResponse(object);
+                        return object;
+                    }
+                } else {
+                    this._processProperties(object, index);
+                    return object;
+                }
+            },
+
+            _processProperties: function (object, index) {
                 this._processEmbeddedProperties(object, index);
                 this._processLinkProperties(object, index);
+            },
+
+            _getObjectSelfLink: function (object) {
+                if (!object[this.linkProperty]) {
+                    return null;
+                }
+
+                if (!object[this.linkProperty]['self']) {
+                    return null;
+                }
+
+                return object[this.linkProperty]['self']['href'];
+            },
+
+            _pathToObject: function (index) {
+                var path = 'lastResponse';
+                if (index != null) {
+                    path += '.' + index;
+                }
+                return path;
             },
 
             _hideProperty: function (object, property) {
                 var value = object[property];
 
                 delete object[property];
-                Object.defineProperty(object, property, {
+                this._defineHiddenProperty(object, property, {
                     enumerable: false,
                     configurable: false,
                     value: value
@@ -79,17 +137,17 @@
                 Object.keys(embedded).forEach(function (embeddedProperty) {
 
                     // modify the object as if it were a response
-                    this.process(embedded[embeddedProperty]);
+                    var object = this._process(embedded[embeddedProperty]);
 
                     // don't overwrite anything
                     if (embeddedProperty in object) {
                         return;
                     }
 
-                    Object.defineProperty(object, embeddedProperty, {
+                    this._defineHiddenProperty(object, embeddedProperty, {
                         enumerable: false,
                         configurable: true,
-                        value: embedded[embeddedProperty]
+                        value: object
                     });
                 }, this);
             },
@@ -115,60 +173,153 @@
                     this._createLinkPostMethod(object, index, linkProperty, attributes);
                     this._createLinkDeleteMethod(object, index, linkProperty, attributes);
 
+                    // special treatment for self
+                    if (linkProperty === 'self') {
+                        this._createSelfReloadMethod(object, index, attributes);
+                    }
                 }, this);
             },
 
-            _createLinkGetMethod: function (object, index, propertyName, attributes) {
-                var initiator = this;
+            _defineHiddenProperty: function (object, propertyName, options) {
+                var otherHiddenProperties = object.__hateoasProperties__;
+                if (otherHiddenProperties == null) {
+                    otherHiddenProperties = {};
+                    Object.defineProperty(object, '__hateoasProperties__', {
+                        enumerable: false,
+                        value: otherHiddenProperties
+                    });
+                }
+
+                options.enumerable = false;
+                Object.defineProperty(object, propertyName, options);
+                otherHiddenProperties[propertyName] = propertyName;
+            },
+
+            _attachAjaxGet: function (object, propertyName, attributes) {
                 var ajaxStorageField = propertyName + 'GetRequest';
 
-                var ajax = initiator.createSubInstance();
-                ajax.url = attributes.href;
-                ajax.method = 'get';
+                var ajax = null;
+                if (this._requestsByUri.hasOwnProperty(attributes.href)) {
+                    ajax = this._requestsByUri[attributes.href];
+                } else {
+                    ajax = this.createSubInstance();
+                    ajax.url = attributes.href;
+                    ajax.method = 'get';
+                    this._requestsByUri[attributes.href] = ajax;
+                }
 
-                Object.defineProperty(object, ajaxStorageField, {
+                this._defineHiddenProperty(object, ajaxStorageField, {
                     enumerable: false,
                     configurable: false,
                     writable: false,
                     value: ajax
                 });
 
-                var fullObjectPath = 'lastResponse.';
-                if (index != null) {
-                    fullObjectPath += index + '.';
-                }
-                fullObjectPath += propertyName;
+                return ajax;
+            },
 
-                var loadProperty = function () {
-                    if (ajax.loading) {
+            /**
+             * Updates all properties of an object with the new data.
+             * All old data is removed in that process.
+             *
+             * This method only works with this.lastResponse and not any external things.
+             *
+             * @param newData
+             * @param index
+             * @private
+             */
+            _updateObject: function (newData, index) {
+                var oldObject = this.get(this._pathToObject(index));
+
+                if (oldObject.__hateoasProperties__ == null) {
+                    console.error('__hateoasProperties__ missing on object', newData);
+                    throw new Error("__hateoasProperties__ missing, way without not implemented");
+                }
+
+                // first delete everything that is visible or that we put there
+                var propertiesToDelete = Object.keys(oldObject).concat(Object.keys(oldObject.__hateoasProperties__));
+                propertiesToDelete.forEach(function (property) {
+                    if (newData.hasOwnProperty(property)) {
                         return;
                     }
+                    delete object[property];
+                });
+                delete newData.__hateoasProperties__;
 
-                    ajax.generateRequest();
+                // now rebuild the object with the new data
+                Object.keys(newData).forEach(function (value, property) {
+                    // at this point this is still the raw json import so no special properties
+                    // TODO check if the property value has changed
+                    // TODO cast a notify or use the .set method
+                    oldObject[property] = value;
+                }, this);
+                // then process them
+                this._processProperties(oldObject, index);
+            },
+
+            _createSelfReloadMethod: function (object, index, attributes) {
+                this._createLinkGetMethod(object, index, 'self', attributes);
+                var ajaxStorageField = 'selfGetRequest';
+
+                // expect the self method to always return a single object
+                // that allows to make a few assumptions
+
+                var replaceSelf = function (newValue) {
+
+                    // set all new values
+                    Object.keys(newValue.__hateoasProperties__).forEach(function (property) {
+                        delete object[property];
+                    });
+                    // TODO continue
+                };
+
+                object[ajaxStorageField].addEventListener('last-response-changed', function () {
+
+                });
+            },
+
+            _createLinkGetMethod: function (object, index, propertyName, attributes) {
+                var self = this;
+                var ajax = this._attachAjaxGet(object, propertyName, attributes);
+
+                var fullObjectPath = this._pathToObject(index);
+                fullObjectPath += '.' + propertyName;
+
+                var replaceValue = function (newValue) {
+                    self._defineHiddenProperty(object, propertyName, {
+                        enumerable: false,
+                        configurable: true,
+                        value: newValue
+                    });
+                    self.notifyPath(fullObjectPath, newValue);
                 };
 
                 // replace by value after the request is done
-                ajax.addEventListener('response', function (e) {
-
-                    Object.defineProperty(object, propertyName, {
-                        enumerable: false,
-                        configurable: true,
-                        value: ajax.lastResponse
-                    });
-                    initiator.notifyPath(fullObjectPath, ajax.lastResponse);
-
-                    // also forward future changes
-                    ajax.addEventListener('last-response-changed', function (e) {
+                ajax.addEventListener('last-response-changed', function (e) {
+                    if (e.detail.path == null || e.detail.path === 'lastResponse') {
+                        replaceValue(e.detail.value);
+                    } else {
+                        // also forward changes within the response
                         var path = e.detail.path.replace('lastResponse', fullObjectPath);
-                        initiator.notifyPath(path, e.detail.value);
-                    });
+                        self.notifyPath(path, e.detail.value);
+                    }
                 });
 
+                // if there is already a response, just use it
+                if (ajax.lastResponse != null) {
+                    replaceValue(ajax.lastResponse);
+                }
+
                 // define a getter to trigger the request
-                Object.defineProperty(object, propertyName, {
+                this._defineHiddenProperty(object, propertyName, {
                     enumerable: false,
                     configurable: true,
-                    get: loadProperty,
+
+                    get: function () {
+                        if (!ajax.loading) {
+                            ajax.generateRequest();
+                        }
+                    },
                     set: function (value) {
                         if (ajax.loading) {
                             // if the property is explicitly set
@@ -186,37 +337,39 @@
 
                 // also define a way to load the values explicitly (this won't be overwritten after the request)
                 var getMethodName = this._composeMethodName('get', propertyName);
-                Object.defineProperty(object, getMethodName, {
+                this._defineHiddenProperty(object, getMethodName, {
                     enumerable: false,
                     configurable: false,
                     value: function () {
-                        loadProperty();
+                        if (!ajax.loading) {
+                            ajax.generateRequest();
+                        }
                         return ajax;
                     }
                 });
             },
 
-            _createLinkPostMethod: function (object, index, name, attributes) {
-                this._createLinkBodyMethod('post', object, name, attributes);
+            _createLinkPostMethod: function (object, index, propertyName, attributes) {
+                this._createLinkBodyMethod('post', object, propertyName, attributes);
             },
 
-            _createLinkPutMethod: function (object, index, name, attributes) {
-                this._createLinkBodyMethod('put', object, name, attributes);
+            _createLinkPutMethod: function (object, index, propertyName, attributes) {
+                this._createLinkBodyMethod('put', object, propertyName, attributes);
             },
 
-            _composeMethodName: function (method, name) {
-                return method + name.substr(0, 1).toUpperCase() + name.substr(1);
+            _composeMethodName: function (method, propertyName) {
+                return method + propertyName.substr(0, 1).toUpperCase() + propertyName.substr(1);
             },
 
-            _createLinkBodyMethod: function (method, object, name, attributes) {
-                var methodName = this._composeMethodName(method, name);
-                var initiator = this;
+            _createLinkBodyMethod: function (method, object, propertyName, attributes) {
+                var methodName = this._composeMethodName(method, propertyName);
+                var self = this;
 
-                Object.defineProperty(object, methodName, {
+                this._defineHiddenProperty(object, methodName, {
                     enumerable: false,
                     configurable: false,
                     value: function (data) {
-                        var request = initiator.createSubInstance();
+                        var request = self.createSubInstance();
                         request.url = attributes.href;
                         request.method = method;
                         request.contentType = 'application/json';
@@ -230,13 +383,13 @@
 
             _createLinkDeleteMethod: function (object, index, name, attributes) {
                 var methodName = this._composeMethodName('delete', name);
-                var initiator = this;
+                var self = this;
 
-                Object.defineProperty(object, methodName, {
+                this._defineHiddenProperty(object, methodName, {
                     enumerable: false,
                     configurable: false,
                     value: function (data) {
-                        var request = initiator.createSubInstance();
+                        var request = self.createSubInstance();
                         request.url = attributes.href;
                         request.method = 'delete';
                         request.params = data;
