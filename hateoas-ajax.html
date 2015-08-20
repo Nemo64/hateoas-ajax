@@ -119,55 +119,74 @@
             },
 
             _createLinkGetMethod: function (object, index, propertyName, attributes) {
-                var isRequestStarted = false;
-                var request = null;
                 var initiator = this;
+                var ajaxStorageField = propertyName + 'GetRequest';
+
+                var ajax = initiator.createSubInstance();
+                ajax.url = attributes.href;
+                ajax.method = 'get';
+
+                Object.defineProperty(object, ajaxStorageField, {
+                    enumerable: false,
+                    configurable: false,
+                    writable: false,
+                    value: ajax
+                });
+
+                var fullObjectPath = 'lastResponse.';
+                if (index != null) {
+                    fullObjectPath += index + '.';
+                }
+                fullObjectPath += propertyName;
+
+                var loadProperty = function () {
+                    if (ajax.loading) {
+                        return;
+                    }
+
+                    // replace by value after the request is done
+                    ajax.addEventListener('response', function (e) {
+
+                        Object.defineProperty(object, propertyName, {
+                            enumerable: false,
+                            configurable: true,
+                            value: ajax.lastResponse
+                        });
+                        initiator.notifyPath(fullObjectPath, ajax.lastResponse);
+
+                        // also forward future changes
+                        ajax.addEventListener('last-response-changed', function (e) {
+                            var path = e.detail.path.replace('lastResponse', fullObjectPath);
+                            initiator.notifyPath(path, e.detail.value);
+                        });
+                    });
+
+                    ajax.generateRequest();
+                };
 
                 // define a getter to trigger the request
                 Object.defineProperty(object, propertyName, {
                     enumerable: false,
                     configurable: true,
-                    get: function () {
-                        if (isRequestStarted) {
-                            return null;
-                        }
-
-                        request = initiator.createSubInstance();
-                        request.url = attributes.href;
-                        request.method = 'get';
-
-                        // replace by value after the request is done
-                        request.addEventListener('response', function (e) {
-                            var fullPath = 'lastResponse.';
-                            if (index != null) {
-                                fullPath += index + '.';
-                            }
-                            fullPath += propertyName;
-
-                            Object.defineProperty(object, propertyName, {
-                                enumerable: false,
-                                configurable: true,
-                                value: request.lastResponse
-                            });
-                            initiator.notifyPath(fullPath, request.lastResponse);
-
-                            // also forward future changes
-                            request.addEventListener('last-response-changed', function (e) {
-                                var path = e.detail.path.replace('lastResponse', fullPath);
-                                initiator.notifyPath(path, e.detail.value);
-                            });
-                        });
-
-                        request.generateRequest();
-                        isRequestStarted = true;
-
-                        return null;
-                    },
+                    get: loadProperty,
                     set: function (value) {
-                        request.abort();
+                        // if the property is explicitly set
+                        // abort any request and set it directly
+                        ajax.discardRequest(ajax.lastRequest);
 
                         delete this[propertyName];
                         this[propertyName] = value;
+                    }
+                });
+
+                // also define a way to load the values explicitly (this won't be overwritten after the request)
+                var getMethodName = this._composeMethodName('get', propertyName);
+                Object.defineProperty(object, getMethodName, {
+                    enumerable: false,
+                    configurable: false,
+                    value: function () {
+                        loadProperty();
+                        return ajax;
                     }
                 });
             },
