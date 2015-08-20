@@ -144,25 +144,25 @@
                         return;
                     }
 
-                    // replace by value after the request is done
-                    ajax.addEventListener('response', function (e) {
-
-                        Object.defineProperty(object, propertyName, {
-                            enumerable: false,
-                            configurable: true,
-                            value: ajax.lastResponse
-                        });
-                        initiator.notifyPath(fullObjectPath, ajax.lastResponse);
-
-                        // also forward future changes
-                        ajax.addEventListener('last-response-changed', function (e) {
-                            var path = e.detail.path.replace('lastResponse', fullObjectPath);
-                            initiator.notifyPath(path, e.detail.value);
-                        });
-                    });
-
                     ajax.generateRequest();
                 };
+
+                // replace by value after the request is done
+                ajax.addEventListener('response', function (e) {
+
+                    Object.defineProperty(object, propertyName, {
+                        enumerable: false,
+                        configurable: true,
+                        value: ajax.lastResponse
+                    });
+                    initiator.notifyPath(fullObjectPath, ajax.lastResponse);
+
+                    // also forward future changes
+                    ajax.addEventListener('last-response-changed', function (e) {
+                        var path = e.detail.path.replace('lastResponse', fullObjectPath);
+                        initiator.notifyPath(path, e.detail.value);
+                    });
+                });
 
                 // define a getter to trigger the request
                 Object.defineProperty(object, propertyName, {
@@ -170,9 +170,14 @@
                     configurable: true,
                     get: loadProperty,
                     set: function (value) {
-                        // if the property is explicitly set
-                        // abort any request and set it directly
-                        ajax.discardRequest(ajax.lastRequest);
+                        if (ajax.loading) {
+                            // if the property is explicitly set
+                            // abort any request and set it directly
+                            // the documentation tells about a discardRequest method but the real method is private
+                            // fallback to the private method and use the documented one if present
+                            var discardMethod = ajax.discardRequest || ajax._discardRequest;
+                            discardMethod.call(ajax, ajax.lastRequest);
+                        }
 
                         delete this[propertyName];
                         this[propertyName] = value;
