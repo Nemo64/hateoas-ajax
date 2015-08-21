@@ -126,7 +126,7 @@
             _attachHateoasElement: function (object, objectPath, propertyName) {
                 var ajax = this.createSubInstance();
 
-                var ajaxStorageProperty = propertyName + 'GetRequest';
+                var ajaxStorageProperty = propertyName + 'Handler';
                 Object.defineProperty(object, ajaxStorageProperty, {
                     enumerable: false,
                     configurable: false,
@@ -159,11 +159,12 @@
                 var dashCaseFromProperty = Polymer.CaseMap.camelToDashCase(fromProperty);
                 hatoasAjax.addEventListener(dashCaseFromProperty + '-changed', function (e) {
                     if (e.detail.path == null || e.detail.path === fromProperty) {
-                        console.log(targetPropertyPath, e.detail.value);
+//                        console.log(targetPropertyPath, e.detail.value);
                         replaceValue(e.detail.value);
                     } else {
                         // just forward changes that are within the property
                         var path = e.detail.path.replace(fromProperty, targetPropertyPath);
+//                        console.log(path, e.detail.value);
                         self.notifyPath(path, e.detail.value);
                     }
                 });
