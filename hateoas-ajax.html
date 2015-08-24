@@ -82,7 +82,7 @@
                     var propertyPath = objectPath + '.' + embeddedProperty;
 
                     // modify the object as if it were a response
-                    this.process(embedded[embeddedProperty], propertyPath);
+                    this._process(embedded[embeddedProperty], propertyPath);
 
                     // don't overwrite anything
                     if (embeddedProperty in object) {
@@ -147,6 +147,7 @@
                     Object.defineProperty(targetObject, toProperty, {
                         enumerable: false,
                         configurable: true,
+                        writable: true,
                         value: newValue
                     });
                     self.notifyPath(targetPropertyPath, newValue);
@@ -177,6 +178,7 @@
 
                 // forward lastResponse to the property we define here
                 this._hiddenPropertyForward(ajax, 'lastResponse', objectPath, propertyName);
+
                 // define a getter to trigger the request
                 Object.defineProperty(object, propertyName, {
                     enumerable: false,
