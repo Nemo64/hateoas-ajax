@@ -1,5 +1,5 @@
 <link rel="import" href="../polymer/polymer.html"/>
-<link rel="import" href="../iron-ajax/iron-ajax-behavior.html"/>
+<link rel="import" href="./iron-ajax-behavior.html"/>
 
 <dom-module id="hateoas-ajax">
     <script>
@@ -81,19 +81,19 @@
                 Object.keys(embedded).forEach(function (embeddedProperty) {
                     var propertyPath = objectPath + '.' + embeddedProperty;
 
-                    // modify the object as if it were a response
-                    this._process(embedded[embeddedProperty], propertyPath);
-
                     // don't overwrite anything
                     if (embeddedProperty in object) {
                         return;
                     }
 
                     Object.defineProperty(object, embeddedProperty, {
-                        enumerable: false,
-                        configurable: true,
-                        value: embedded[embeddedProperty]
+                      enumerable: false,
+                      configurable: true,
+                      value: embedded[embeddedProperty]
                     });
+                    
+                    // modify the object as if it were a response
+                    this._process(embedded[embeddedProperty], propertyPath);
 
                     this.notifyPath(propertyPath, embedded[embeddedProperty]);
                 }, this);
