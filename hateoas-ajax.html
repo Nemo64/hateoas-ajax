@@ -2,262 +2,249 @@
 <link rel="import" href="./iron-ajax-behavior.html"/>
 
 <dom-module id="hateoas-ajax">
-    <script>
-//        var oldFire = Polymer.Base.fire;
-//        Polymer.Base.fire = function () { console.log(arguments); oldFire.apply(this, arguments); };
+<script>
 
-        //noinspection JSUnusedGlobalSymbols
-        Polymer({
-            is: 'hateoas-ajax',
+  Polymer({
+    is: 'hateoas-ajax',
 
-            // we want iron ajax behavior
-            behaviors: [Polymer.IronAjaxBehavior],
+    // we want iron ajax behavior
+    behaviors: [Polymer.IronAjaxBehavior],
 
-            properties: {
+    properties: {
 
-                linkProperty: {
-                    type: String,
-                    value: '_links'
-                },
+      linkProperty: {
+        type: String,
+        value: '_links'
+      },
 
-                embeddedProperty: {
-                    type: String,
-                    value: '_embedded'
-                }
-            },
+      embeddedProperty: {
+        type: String,
+        value: '_embedded'
+      }
+    },
 
-            observers: [
-                '_process(lastResponse)'
-            ],
+    observers: ['_process(lastResponse)'],
 
-            createSubInstance: function () {
-                var request = document.createElement(this.nodeName);
-                request.linkProperty = this.linkProperty;
-                request.embeddedProperty = this.embeddedProperty;
-                request.headers = this.headers;
-                request.auto = false;
-                return request;
-            },
+    createSubInstance: function() {
+      var request = document.createElement(this.nodeName);
+      request.linkProperty = this.linkProperty;
+      request.embeddedProperty = this.embeddedProperty;
+      request.headers = this.headers;
+      request.auto = false;
+      return request;
+    },
 
-            _process: function (value, objectPath) {
-                if (objectPath == null) {
-                    objectPath = 'lastResponse';
-                }
+    _process: function(value, objectPath) {
+      if (objectPath == null) {
+        objectPath = 'lastResponse';
+      }
 
-                if (value instanceof Array) {
-                    value.forEach(function (object, index) {
-                        this._modifyObject(object, objectPath + '.' + index)
-                    }, this);
-                } else if (value instanceof Object) {
-                    this._modifyObject(value, objectPath);
-                }
-            },
+      if (value instanceof Array) {
+        value.forEach(function(object, index) {
+          this._modifyObject(object, objectPath + '.' + index)
+        }, this);
+      } else if (value instanceof Object) {
+        this._modifyObject(value, objectPath);
+      }
+    },
 
-            _modifyObject: function (object, objectPath) {
-                this._processEmbeddedProperties(object, objectPath);
-                this._processLinkProperties(object, objectPath);
-            },
+    _modifyObject: function(object, objectPath) {
+      this._processEmbeddedProperties(object, objectPath);
+      this._processLinkProperties(object, objectPath);
+    },
 
-            _hideProperty: function (object, property) {
-                var value = object[property];
+    _hideProperty: function(object, property) {
+      var value = object[property];
 
-                delete object[property];
-                Object.defineProperty(object, property, {
-                    enumerable: false,
-                    configurable: false,
-                    value: value
-                });
-            },
+      delete object[property];
+      Object.defineProperty(object, property, {
+        enumerable: false,
+        configurable: false,
+        value: value
+      });
+    },
 
-            _processEmbeddedProperties: function (object, objectPath) {
-                var embedded = object[this.embeddedProperty];
-                if (!(embedded instanceof Object)) {
-                    return;
-                }
+    _processEmbeddedProperties: function(object, objectPath) {
+      var embedded = object[this.embeddedProperty];
+      if (!(embedded instanceof Object)) { return; }
 
-                // hide the property as it is not really a value
-                this._hideProperty(object, this.embeddedProperty);
+      // hide the property as it is not really a value
+      this._hideProperty(object, this.embeddedProperty);
 
-                Object.keys(embedded).forEach(function (embeddedProperty) {
-                    var propertyPath = objectPath + '.' + embeddedProperty;
+      Object.keys(embedded).forEach(function(embeddedProperty) {
+        var propertyPath = objectPath + '.' + embeddedProperty;
 
-                    // don't overwrite anything
-                    if (embeddedProperty in object) {
-                        return;
-                    }
+        // don't overwrite anything
+        if (embeddedProperty in object) { return; }
 
-                    Object.defineProperty(object, embeddedProperty, {
-                      enumerable: false,
-                      configurable: true,
-                      value: embedded[embeddedProperty]
-                    });
-                    
-                    // modify the object as if it were a response
-                    this._process(embedded[embeddedProperty], propertyPath);
-
-                    this.notifyPath(propertyPath, embedded[embeddedProperty]);
-                }, this);
-            },
-
-            _processLinkProperties: function (object, objectPath) {
-                var links = object[this.linkProperty];
-                if (!(links instanceof Object)) {
-                    return;
-                }
-
-                // hide the property as it is not really a value
-                this._hideProperty(object, this.linkProperty);
-
-                Object.keys(links).forEach(function (linkProperty) {
-                    // don't overwrite anything
-                    if (linkProperty in object) {
-                        return;
-                    }
-
-                    var attributes = links[linkProperty];
-                    this._createLinkGetMethod(object, objectPath, linkProperty, attributes);
-                    this._createLinkPutMethod(object, objectPath, linkProperty, attributes);
-                    this._createLinkPostMethod(object, objectPath, linkProperty, attributes);
-                    this._createLinkDeleteMethod(object, objectPath, linkProperty, attributes);
-
-                }, this);
-            },
-
-            _attachHateoasElement: function (object, objectPath, propertyName) {
-                var ajax = this.createSubInstance();
-
-                var ajaxStorageProperty = propertyName + 'Handler';
-                Object.defineProperty(object, ajaxStorageProperty, {
-                    enumerable: false,
-                    configurable: false,
-                    writable: false,
-                    value: ajax
-                });
-
-                this.notifyPath(objectPath + '.' + ajaxStorageProperty, ajax);
-                return ajax;
-            },
-
-            _hiddenPropertyForward: function (hatoasAjax, fromProperty, targetObjectPath, toProperty, initialize) {
-                var targetObject = this.get(targetObjectPath);
-                var targetPropertyPath = targetObjectPath + '.' + toProperty;
-                var self = this;
-
-                var replaceValue = function (newValue) {
-                    Object.defineProperty(targetObject, toProperty, {
-                        enumerable: false,
-                        configurable: true,
-                        writable: true,
-                        value: newValue
-                    });
-                    self.notifyPath(targetPropertyPath, newValue);
-                };
-
-                if (initialize) {
-                    replaceValue(hatoasAjax[fromProperty]);
-                }
-
-                var dashCaseFromProperty = Polymer.CaseMap.camelToDashCase(fromProperty);
-                hatoasAjax.addEventListener(dashCaseFromProperty + '-changed', function (e) {
-                    if (e.detail.path == null || e.detail.path === fromProperty) {
-//                        console.log(targetPropertyPath, e.detail.value);
-                        replaceValue(e.detail.value);
-                    } else {
-                        // just forward changes that are within the property
-                        var path = e.detail.path.replace(fromProperty, targetPropertyPath);
-//                        console.log(path, e.detail.value);
-                        self.notifyPath(path, e.detail.value);
-                    }
-                });
-            },
-
-            _createLinkGetMethod: function (object, objectPath, propertyName, attributes) {
-
-                var ajax = this._attachHateoasElement(object, objectPath, propertyName);
-                ajax.url = attributes.href;
-
-                // forward lastResponse to the property we define here
-                this._hiddenPropertyForward(ajax, 'lastResponse', objectPath, propertyName);
-
-                // define a getter to trigger the request
-                Object.defineProperty(object, propertyName, {
-                    enumerable: false,
-                    configurable: true,
-                    get: function () {
-                        if (!ajax.loading) {
-                            ajax.generateRequest();
-                        }
-                    },
-                    set: function (value) {
-                        if (ajax.loading) {
-                            // if the property is explicitly set
-                            // abort any request and set it directly
-                            // the documentation tells about a discardRequest method but the real method is private
-                            // fallback to the private method and use the documented one if present
-                            var discardMethod = ajax.discardRequest || ajax._discardRequest;
-                            discardMethod.call(ajax, ajax.lastRequest);
-                        }
-
-                        delete this[propertyName];
-                        this[propertyName] = value;
-                    }
-                });
-
-                // also give an indicator if the field is loading
-                var loadingProperty = propertyName + 'Loading';
-                this._hiddenPropertyForward(ajax, 'loading', objectPath, loadingProperty, true);
-            },
-
-            _createLinkPostMethod: function (object, path, propertyName, attributes) {
-                this._createLinkBodyMethod('post', object, propertyName, attributes);
-            },
-
-            _createLinkPutMethod: function (object, path, propertyName, attributes) {
-                this._createLinkBodyMethod('put', object, propertyName, attributes);
-            },
-
-            _composeMethodName: function (method, propertyName) {
-                return method + propertyName.substr(0, 1).toUpperCase() + propertyName.substr(1);
-            },
-
-            _createLinkBodyMethod: function (method, object, propertyName, attributes) {
-                var methodName = this._composeMethodName(method, propertyName);
-                var initiator = this;
-
-                Object.defineProperty(object, methodName, {
-                    enumerable: false,
-                    configurable: false,
-                    value: function (data) {
-                        var request = initiator.createSubInstance();
-                        request.url = attributes.href;
-                        request.method = method;
-                        request.contentType = 'application/json';
-                        request.body = JSON.stringify(data);
-                        request.generateRequest();
-
-                        return request;
-                    }
-                });
-            },
-
-            _createLinkDeleteMethod: function (object, path, propertyName, attributes) {
-                var methodName = this._composeMethodName('delete', propertyName);
-                var initiator = this;
-
-                Object.defineProperty(object, methodName, {
-                    enumerable: false,
-                    configurable: false,
-                    value: function (data) {
-                        var request = initiator.createSubInstance();
-                        request.url = attributes.href;
-                        request.method = 'delete';
-                        request.params = data;
-                        request.generateRequest();
-
-                        return request;
-                    }
-                });
-            }
+        Object.defineProperty(object, embeddedProperty, {
+          enumerable: false,
+          configurable: true,
+          value: embedded[embeddedProperty]
         });
-    </script>
+
+        // modify the object as if it were a response
+        this._process(embedded[embeddedProperty], propertyPath);
+
+        this.notifyPath(propertyPath, embedded[embeddedProperty]);
+      }, this);
+    },
+
+    _processLinkProperties: function(object, objectPath) {
+      var links = object[this.linkProperty];
+      if (!(links instanceof Object)) { return; }
+
+      // hide the property as it is not really a value
+      this._hideProperty(object, this.linkProperty);
+
+      Object.keys(links).forEach(function(linkProperty) {
+        // don't overwrite anything
+        if (linkProperty in object) { return; }
+
+        var attributes = links[linkProperty];
+        this._createLinkGetMethod(object, objectPath, linkProperty, attributes);
+        this._createLinkPutMethod(object, objectPath, linkProperty, attributes);
+        this._createLinkPostMethod(object, objectPath, linkProperty, attributes);
+        this._createLinkDeleteMethod(object, objectPath, linkProperty, attributes);
+
+      }, this);
+    },
+
+    _attachHateoasElement: function(object, objectPath, propertyName) {
+      var ajax = this.createSubInstance();
+
+      var ajaxStorageProperty = propertyName + 'Handler';
+      Object.defineProperty(object, ajaxStorageProperty, {
+        enumerable: false,
+        configurable: false,
+        writable: false,
+        value: ajax
+      });
+
+      this.notifyPath(objectPath + '.' + ajaxStorageProperty, ajax);
+      return ajax;
+    },
+
+    _hiddenPropertyForward: function(hatoasAjax, fromProperty, targetObjectPath, toProperty, initialize) {
+      var targetObject = this.get(targetObjectPath);
+      var targetPropertyPath = targetObjectPath + '.' + toProperty;
+      var self = this;
+
+      var replaceValue = function(newValue) {
+        Object.defineProperty(targetObject, toProperty, {
+          enumerable: false,
+          configurable: true,
+          writable: true,
+          value: newValue
+        });
+        self.notifyPath(targetPropertyPath, newValue);
+      };
+
+      if (initialize) {
+        replaceValue(hatoasAjax[fromProperty]);
+      }
+
+      var dashCaseFromProperty = Polymer.CaseMap.camelToDashCase(fromProperty);
+      hatoasAjax.addEventListener(dashCaseFromProperty + '-changed', function(e) {
+        if (e.detail.path == null || e.detail.path === fromProperty) {
+          //                        console.log(targetPropertyPath, e.detail.value);
+          replaceValue(e.detail.value);
+        } else {
+          // just forward changes that are within the property
+          var path = e.detail.path.replace(fromProperty, targetPropertyPath);
+          //                        console.log(path, e.detail.value);
+          self.notifyPath(path, e.detail.value);
+        }
+      });
+    },
+
+    _createLinkGetMethod: function(object, objectPath, propertyName, attributes) {
+
+      var ajax = this._attachHateoasElement(object, objectPath, propertyName);
+      ajax.url = attributes.href;
+
+      // forward lastResponse to the property we define here
+      this._hiddenPropertyForward(ajax, 'lastResponse', objectPath, propertyName);
+
+      // define a getter to trigger the request
+      Object.defineProperty(object, propertyName, {
+        enumerable: false,
+        configurable: true,
+        get: function() {
+          if (!ajax.loading) {
+            ajax.generateRequest();
+          }
+        },
+        set: function(value) {
+          if (ajax.loading) {
+            // if the property is explicitly set
+            // abort any request and set it directly
+            // the documentation tells about a discardRequest method but the real method is private
+            // fallback to the private method and use the documented one if present
+            var discardMethod = ajax.discardRequest || ajax._discardRequest;
+            discardMethod.call(ajax, ajax.lastRequest);
+          }
+
+          delete this[propertyName];
+          this[propertyName] = value;
+        }
+      });
+
+      // also give an indicator if the field is loading
+      var loadingProperty = propertyName + 'Loading';
+      this._hiddenPropertyForward(ajax, 'loading', objectPath, loadingProperty, true);
+    },
+
+    _createLinkPostMethod: function(object, path, propertyName, attributes) {
+      this._createLinkBodyMethod('post', object, propertyName, attributes);
+    },
+
+    _createLinkPutMethod: function(object, path, propertyName, attributes) {
+      this._createLinkBodyMethod('put', object, propertyName, attributes);
+    },
+
+    _composeMethodName: function(method, propertyName) {
+      return method + propertyName.substr(0, 1).toUpperCase() + propertyName.substr(1);
+    },
+
+    _createLinkBodyMethod: function(method, object, propertyName, attributes) {
+      var methodName = this._composeMethodName(method, propertyName);
+      var initiator = this;
+
+      Object.defineProperty(object, methodName, {
+        enumerable: false,
+        configurable: false,
+        value: function(data) {
+          var request = initiator.createSubInstance();
+          request.url = attributes.href;
+          request.method = method;
+          request.contentType = 'application/json';
+          request.body = JSON.stringify(data);
+          request.generateRequest();
+
+          return request;
+        }
+      });
+    },
+
+    _createLinkDeleteMethod: function(object, path, propertyName, attributes) {
+      var methodName = this._composeMethodName('delete', propertyName);
+      var initiator = this;
+
+      Object.defineProperty(object, methodName, {
+        enumerable: false,
+        configurable: false,
+        value: function(data) {
+          var request = initiator.createSubInstance();
+          request.url = attributes.href;
+          request.method = 'delete';
+          request.params = data;
+          request.generateRequest();
+
+          return request;
+        }
+      });
+    }
+  });
+</script>
 </dom-module>
