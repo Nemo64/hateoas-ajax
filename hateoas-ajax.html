@@ -1,6 +1,18 @@
 <link rel="import" href="../polymer/polymer.html"/>
 <link rel="import" href="./iron-ajax-behavior.html"/>
 
+<!--
+An extension of polymer's iron-ajax but with an addition of some magic related to hateoas.
+
+<a href="http://stateless.co/hal_specification.html">HAL - Hypertext Application Language</a><br/>
+<a href="https://spring.io/understanding/HATEOAS">Understanding HATEOAS</a>
+
+Example:
+
+    <hateoas-ajax url="{{url}}" response="{{response}}"></hateoas-ajax>
+
+-->
+
 <dom-module id="hateoas-ajax">
 <script>
 
@@ -12,11 +24,17 @@
 
     properties: {
 
+      /**
+       * The name of the links property.
+       */
       linkProperty: {
         type: String,
         value: '_links'
       },
 
+      /**
+       * The name of the embedded property.
+       */
       embeddedProperty: {
         type: String,
         value: '_embedded'
