@@ -53,13 +53,13 @@ Example:
     },
 
     _process: function(value, objectPath) {
-      if (objectPath == null) {
+      if (objectPath === null) {
         objectPath = 'lastResponse';
       }
 
       if (value instanceof Array) {
         value.forEach(function(object, index) {
-          this._modifyObject(object, objectPath + '.' + index)
+          this._modifyObject(object, objectPath + '.' + index);
         }, this);
       } else if (value instanceof Object) {
         this._modifyObject(value, objectPath);
@@ -164,7 +164,7 @@ Example:
 
       var dashCaseFromProperty = Polymer.CaseMap.camelToDashCase(fromProperty);
       hatoasAjax.addEventListener(dashCaseFromProperty + '-changed', function(e) {
-        if (e.detail.path == null || e.detail.path === fromProperty) {
+        if (!e.detail.path || e.detail.path === fromProperty) {
           //                        console.log(targetPropertyPath, e.detail.value);
           replaceValue(e.detail.value);
         } else {
