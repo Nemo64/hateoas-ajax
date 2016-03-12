@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
+
+    <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
+    <script src="../../web-component-tester/browser.js"></script>
+
+    <!-- Step 1: import the element to test -->
+    <link rel="import" href="../hateoas-ajax.html">
+
+    <!-- Report configuration and data -->
+    <script type="text/javascript" src="hateos/comments.js"></script>
+    <script type="text/javascript" src="hateos/posts.js"></script>
+    <script type="text/javascript" src="basic-test.js"></script>
+  </head>
+  <body>
+    <test-fixture id="posts">
+      <template>
+        <hateoas-ajax url="/posts"></hateoas-ajax>
+      </template>
+    </test-fixture>
+    <test-fixture id="comments">
+      <template>
+        <hateoas-ajax url="/comments"></hateoas-ajax>
+      </template>
+    </test-fixture>
+  </body>
+</html>

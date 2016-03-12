@@ -13,10 +13,15 @@
   "quotmark": "single",
   "undef": true,
   "unused": true,
+  "mocha": true,
   "globals": {
     "wrap": true,
     "unwrap": true,
     "Polymer": true,
-    "Platform": true
+    "Platform": true,
+    "_": true,
+    "sinon": true,
+    "expect": true,
+    "WCT": true
   }
 }

@@ -5,12 +5,13 @@ var gulp = require('gulp');
 var $ = require('gulp-load-plugins')();
 var runSequence = require('run-sequence');
 var bump = require('gulp-bump');
+var src = ['hateoas-ajax.html',
+           'test/*.js',
+           'test/*.html'];
 
 //Lint JavaScript
 gulp.task('jshint', function () {
-  return gulp.src([
-      'hateoas-ajax.html'
-    ])
+  return gulp.src(src)
     .pipe($.jshint.extract()) // Extract JS from .html files
     .pipe($.jshint())
     .pipe($.jshint.reporter('jshint-stylish'));
@@ -29,5 +30,5 @@ gulp.task('default', function (callback) {
 });
 
 gulp.task('watch', function () {
-  gulp.watch(['hateoas-ajax.html'], ['default']);
+  gulp.watch(src, ['default']);
 });
