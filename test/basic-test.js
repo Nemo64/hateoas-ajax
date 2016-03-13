@@ -54,8 +54,8 @@ describe('<hateoas-ajax> basic', function() {
             comment: {
               href: '/comments/' + comment.id
             },
-            posts: {
-              href: '/comments/' + comment.id + '/posts'
+            post: {
+              href: '/comments/' + comment.id + '/post'
             }
           }
         }, comment);
@@ -89,8 +89,8 @@ describe('<hateoas-ajax> basic', function() {
               comment: {
                 href: '/comments/' + comment.id
               },
-              posts: {
-                href: '/comments/' + comment.id + '/posts'
+              post: {
+                href: '/comments/' + comment.id + '/post'
               }
             }
           }, comment);
@@ -112,6 +112,38 @@ describe('<hateoas-ajax> basic', function() {
         'Content-Type': 'application/hal+json'
       }, JSON.stringify(commentsResponse));
     });
+
+    server.respondWith(/\/comments\/(\d+)\/post/, function(request, id) {
+      id = parseInt(id, 10);
+
+      var comment = _.find(rawComments, {
+        id: id
+      });
+
+      var post = _.find(rawPosts, {
+        id: comment.postId
+      });
+
+      var tPost = _.defaults({
+        '_links': {
+          self: {
+            href: '/posts/' + post.id
+          },
+          post: {
+            href: '/posts/' + post.id
+          },
+          comments: {
+            href: '/posts/' + post.id + '/comments'
+          }
+        }
+      }, post);
+      delete tPost.id;
+
+      request.respond(200, {
+        'Content-Type': 'application/hal+json'
+      }, JSON.stringify(tPost));
+    });
+
     xhrSpy = sinon.spy(server, 'handleRequest');
   });
 
@@ -134,7 +166,7 @@ describe('<hateoas-ajax> basic', function() {
       });
     });
 
-    describe('when accessing linked resources', function() {
+    describe('when accessing one-to-many linked resources', function() {
 
       it('should fire 1 xhr request', function() {
         request.response.posts[0].comments;
@@ -142,9 +174,35 @@ describe('<hateoas-ajax> basic', function() {
         expect(xhrSpy).to.be.calledOnce;
       });
 
-      it('should be able to access linked resources', function(done) {
+      it('should be able to access linked collection of resources', function(done) {
         request.response.posts[0].commentsHandler.lastRequest.completes.then(function() {
           expect(request.response.posts[0].comments.comments).to.be.an('array');
+          done();
+        });
+      });
+
+      afterEach(function() {
+        xhrSpy.reset();
+      });
+    });
+
+    describe('when accessing many-to-one linked resource', function() {
+
+      var comment;
+
+      before(function() {
+        comment = request.response.posts[0].comments.comments[0];
+      });
+
+      it('should fire 1 xhr request', function() {
+        comment.post;
+
+        expect(xhrSpy).to.be.calledOnce;
+      });
+
+      it('should be able to access linked resource', function(done) {
+        comment.postHandler.lastRequest.completes.then(function() {
+          expect(comment.post).to.be.an('object');
           done();
         });
       });
