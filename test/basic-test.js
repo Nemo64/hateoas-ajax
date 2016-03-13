@@ -10,24 +10,28 @@ describe('<hateoas-ajax> basic', function() {
       autoRespond: true
     });
 
+    var formPost = function(post) {
+      var tPost = _.defaults({
+        '_links': {
+          self: {
+            href: '/posts/' + post.id
+          },
+          post: {
+            href: '/posts/' + post.id
+          },
+          comments: {
+            href: '/posts/' + post.id + '/comments'
+          }
+        }
+      }, post);
+      delete tPost.id;
+      return tPost;
+    };
+
     server.respondWith('GET', '/posts', function(request) {
 
       var postsResponse = _.transform(rawPosts, function(result, post) {
-        var tPost = _.defaults({
-          '_links': {
-            self: {
-              href: '/posts/' + post.id
-            },
-            post: {
-              href: '/posts/' + post.id
-            },
-            comments: {
-              href: '/posts/' + post.id + '/comments'
-            }
-          }
-        }, post);
-        delete tPost.id;
-        result._embedded.posts.push(tPost);
+        result._embedded.posts.push(formPost(post));
       }, {
         _embedded: {
           posts: []
@@ -43,24 +47,28 @@ describe('<hateoas-ajax> basic', function() {
       }, JSON.stringify(postsResponse));
     });
 
+    var formComment = function(comment) {
+      var tComment = _.defaults({
+        '_links': {
+          self: {
+            href: '/comments/' + comment.id
+          },
+          comment: {
+            href: '/comments/' + comment.id
+          },
+          post: {
+            href: '/comments/' + comment.id + '/post'
+          }
+        }
+      }, comment);
+      delete tComment.id;
+      return tComment;
+    };
+
     server.respondWith('GET', '/comments', function(request) {
 
       var commentsResponse = _.transform(rawComments, function(result, comment) {
-        var tComment = _.defaults({
-          '_links': {
-            self: {
-              href: '/comments/' + comment.id
-            },
-            comment: {
-              href: '/comments/' + comment.id
-            },
-            post: {
-              href: '/comments/' + comment.id + '/post'
-            }
-          }
-        }, comment);
-        delete tComment.id;
-        result._embedded.comments.push(tComment);
+        result._embedded.comments.push(formComment(comment));
       }, {
         _embedded: {
           comments: []
@@ -81,21 +89,7 @@ describe('<hateoas-ajax> basic', function() {
       id = parseInt(id, 10);
       var commentsResponse = _.transform(rawComments, function(result, comment) {
         if (comment.postId === id) {
-          var tComment = _.defaults({
-            '_links': {
-              self: {
-                href: '/comments/' + comment.id
-              },
-              comment: {
-                href: '/comments/' + comment.id
-              },
-              post: {
-                href: '/comments/' + comment.id + '/post'
-              }
-            }
-          }, comment);
-          delete tComment.id;
-          result._embedded.comments.push(tComment);
+          result._embedded.comments.push(formComment(comment));
         }
       }, {
         _embedded: {
@@ -124,24 +118,9 @@ describe('<hateoas-ajax> basic', function() {
         id: comment.postId
       });
 
-      var tPost = _.defaults({
-        '_links': {
-          self: {
-            href: '/posts/' + post.id
-          },
-          post: {
-            href: '/posts/' + post.id
-          },
-          comments: {
-            href: '/posts/' + post.id + '/comments'
-          }
-        }
-      }, post);
-      delete tPost.id;
-
       request.respond(200, {
         'Content-Type': 'application/hal+json'
-      }, JSON.stringify(tPost));
+      }, JSON.stringify(formPost(post)));
     });
 
     xhrSpy = sinon.spy(server, 'handleRequest');
