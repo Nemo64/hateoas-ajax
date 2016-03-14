@@ -172,6 +172,21 @@ describe('<hateoas-ajax> basic', function() {
         });
       });
 
+      it('should have self handlers', function() {
+        expect(post.deleteSelf).to.be.an('function');
+        expect(post.deletePost).to.be.an('function');
+        expect(post.postSelf).to.be.an('function');
+        expect(post.postPost).to.be.an('function');
+        expect(post.putSelf).to.be.an('function');
+        expect(post.putPost).to.be.an('function');
+      });
+
+      it('should have relation handlers', function() {
+        expect(post.deleteComments).to.be.an('function');
+        expect(post.postComments).to.be.an('function');
+        expect(post.putComments).to.be.an('function');
+      });
+
       afterEach(function() {
         xhrSpy.reset();
       });
@@ -197,6 +212,21 @@ describe('<hateoas-ajax> basic', function() {
           expect(comment.post).to.be.an('object');
           done();
         });
+      });
+
+      it('should have self handlers', function() {
+        expect(comment.deleteSelf).to.be.an('function');
+        expect(comment.deleteComment).to.be.an('function');
+        expect(comment.postSelf).to.be.an('function');
+        expect(comment.postComment).to.be.an('function');
+        expect(comment.putSelf).to.be.an('function');
+        expect(comment.putComment).to.be.an('function');
+      });
+
+      it('should have relation handlers', function() {
+        expect(comment.deletePost).to.be.an('function');
+        expect(comment.postPost).to.be.an('function');
+        expect(comment.putPost).to.be.an('function');
       });
 
       afterEach(function() {
