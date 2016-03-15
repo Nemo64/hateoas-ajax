@@ -6,6 +6,7 @@
     "gulp-jshint": "^1.6.3",
     "gulp-load-plugins": "^0.10.0",
     "jshint-stylish": "^2.0.0",
-    "run-sequence": "^1.0.2"
+    "run-sequence": "^1.0.2",
+    "web-component-tester": "^4.2.2"
   }
 }
