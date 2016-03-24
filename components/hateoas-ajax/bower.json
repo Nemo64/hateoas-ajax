@@ -1,0 +1,30 @@
+{
+  "name": "hateoas-ajax",
+  "version": "1.0.0",
+  "description": "An extension of polymer's iron-ajax but with an addition of some magic related to hateoas.",
+  "keywords": [
+    "web-component",
+    "web-components",
+    "polymer",
+    "rest",
+    "hateoas",
+    "hypermedia"
+  ],
+  "main": "hateoas-ajax.html",
+  "homepage": "https://github.com/Nemo64/hateoas-ajax",
+  "ignore": [
+    "/.*",
+    "/test/",
+    "/demo/",
+    "/src/",
+    "/gulpfile.js",
+    "/package.json"
+  ],
+  "dependencies": {
+    "polymer": "Polymer/polymer#^1.0.0"
+  },
+  "devDependencies": {
+    "iron-component-page": "PolymerElements/iron-component-page#^1.0.0",
+    "web-component-tester": "*"
+  }
+}
