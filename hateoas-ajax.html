@@ -120,7 +120,7 @@ Example:
         if (linkProperty in object) { return; }
 
         var attributes = links[linkProperty];
-        if(/{/.test(attributes.href)) {
+        if (attributes.templated) {
           attributes.href = attributes.href.split('{')[0];
         }
         this._createLinkGetMethod(object, objectPath, linkProperty, attributes);
