@@ -2,17 +2,19 @@
 <link rel="import" href="./iron-ajax-behavior.html"/>
 
 <!--
-An extension of polymer's iron-ajax but with an addition of some magic related to hateoas.
+An extension of polymer's <a href="https://elements.polymer-project.org/elements/iron-ajax">iron-ajax</a> but with an addition of some magic related to <a href="http://en.wikipedia.org/wiki/HATEOAS">hateoas</a>.
 
 <a href="http://stateless.co/hal_specification.html">HAL - Hypertext Application Language</a><br/>
-<a href="https://spring.io/understanding/HATEOAS">Understanding HATEOAS</a>
 
 Example:
 
     <hateoas-ajax url="{{url}}" response="{{response}}"></hateoas-ajax>
 
--->
+    Simply call relations like they are properties,
+    they are requested and through data binding automatically displayed when present.
 
+    <div>{{person.address}}</div>
+-->
 <dom-module id="hateoas-ajax">
 <script>
 
@@ -43,7 +45,10 @@ Example:
 
     observers: ['_process(lastResponse)'],
 
-    createSubInstance: function() {
+    /**
+     * Creates a sub instance of this element for linked resoures.
+     */
+    _createSubInstance: function() {
       var request = document.createElement(this.nodeName);
       request.linkProperty = this.linkProperty;
       request.embeddedProperty = this.embeddedProperty;
@@ -52,6 +57,12 @@ Example:
       return request;
     },
 
+    /**
+     * Process the raw response and extract embedded resources, create sub instances for linked resources etc.
+     * 
+     * @param {Object} value - response data to process.
+     * @param {String} objectPath - this would be undefined for root response.
+     */
     _process: function(value, objectPath) {
       if (!objectPath) {
         objectPath = 'lastResponse';
@@ -66,11 +77,23 @@ Example:
       }
     },
 
+    /**
+     * Process each iteration of a response, e.g: when fetching users, this method is called for each user inside users array.
+     *
+     * @param {Object} object
+     * @param {String} objectPath
+     */
     _modifyObject: function(object, objectPath) {
       this._processEmbeddedProperties(object, objectPath);
       this._processLinkProperties(object, objectPath);
     },
 
+    /**
+     * Hides special properties within the raw response, such as embedded and links
+     * 
+     * @param {Object} object
+     * @param {String} objectPath
+     */
     _hideProperty: function(object, property) {
       var value = object[property];
 
@@ -82,6 +105,12 @@ Example:
       });
     },
 
+    /**
+     * Process embedded properties. Collection of resources are wrapped within an embedded property.
+     * 
+     * @param {Object} object
+     * @param {String} objectPath
+     */
     _processEmbeddedProperties: function(object, objectPath) {
       var embedded = object[this.embeddedProperty];
       if (!(embedded instanceof Object)) { return; }
@@ -129,7 +158,7 @@ Example:
     },
 
     _attachHateoasElement: function(object, objectPath, propertyName) {
-      var ajax = this.createSubInstance();
+      var ajax = this._createSubInstance();
 
       var ajaxStorageProperty = propertyName + 'Handler';
       Object.defineProperty(object, ajaxStorageProperty, {
@@ -233,7 +262,7 @@ Example:
         enumerable: false,
         configurable: false,
         value: function(data) {
-          var request = initiator.createSubInstance();
+          var request = initiator._createSubInstance();
           request.url = attributes.href;
           request.method = method;
           request.contentType = 'application/json';
@@ -253,7 +282,7 @@ Example:
         enumerable: false,
         configurable: false,
         value: function(data) {
-          var request = initiator.createSubInstance();
+          var request = initiator._createSubInstance();
           request.url = attributes.href;
           request.method = 'delete';
           request.params = data;
