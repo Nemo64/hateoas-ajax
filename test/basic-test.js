@@ -167,8 +167,12 @@ describe('<hateoas-ajax> basic', function() {
 
       it('should be able to access linked collection of resources', function(done) {
         post.commentsHandler.lastRequest.completes.then(function() {
-          expect(post.comments.comments).to.be.an('array');
-          done();
+          try {
+            expect(post.comments.comments).to.be.an('array');
+            done();
+          } catch (e) {
+            done(e);
+          }
         });
       });
 
@@ -209,8 +213,12 @@ describe('<hateoas-ajax> basic', function() {
 
       it('should be able to access linked resource', function(done) {
         comment.postHandler.lastRequest.completes.then(function() {
-          expect(comment.post).to.be.an('object');
-          done();
+          try {
+            expect(comment.post).to.be.an('object');
+            done();
+          } catch (e) {
+            done(e);
+          }
         });
       });
 
@@ -249,8 +257,15 @@ describe('<hateoas-ajax> basic', function() {
 
     it('should have embedded resources within the response', function(done) {
       request.completes.then(function() {
-        expect(request.response.posts).to.be.an('array');
-        done();
+        try {
+          expect(request.response.posts).to.be.an('array');
+          _.forEach(request.response.posts, function(post) {
+            expect(post.id).to.be.an('number');
+          });
+          done();
+        } catch (e) {
+          done(e);
+        }
       });
     });
 
@@ -282,10 +297,15 @@ describe('<hateoas-ajax> basic', function() {
 
     it('should have resource at root of response', function(done) {
       request.completes.then(function() {
-        expect(request.response).to.be.an('object');
-        expect(request.response.title).to.be.an('string');
-        expect(request.response.title).to.equal('sunt aut facere repellat provident occaecati excepturi optio reprehenderit');
-        done();
+        try {
+          expect(request.response).to.be.an('object');
+          expect(request.response.id).to.be.an('number');
+          expect(request.response.title).to.be.an('string');
+          expect(request.response.title).to.equal('sunt aut facere repellat provident occaecati excepturi optio reprehenderit');
+          done();
+        } catch (e) {
+          done(e);
+        }
       });
     });
 

@@ -149,6 +149,9 @@ Example:
         if (linkProperty in object) { return; }
 
         var attributes = links[linkProperty];
+        if (!(object instanceof Array) && 'self' === linkProperty) {
+          this._createIdProperty(object, attributes);
+        }
         this._createLinkGetMethod(object, objectPath, linkProperty, attributes);
         this._createLinkPutMethod(object, objectPath, linkProperty, attributes);
         this._createLinkPostMethod(object, objectPath, linkProperty, attributes);
@@ -201,6 +204,20 @@ Example:
           var path = e.detail.path.replace(fromProperty, targetPropertyPath);
           //                        console.log(path, e.detail.value);
           self.notifyPath(path, e.detail.value);
+        }
+      });
+    },
+
+    /**
+     * An id property is extracted from the self link for convenience.
+     *
+     * @param {Object} object
+     * @param {Object} attributes self link attributes
+     */
+    _createIdProperty: function(object, attributes) {
+      Object.defineProperty(object, 'id', {
+        get: function() {
+          return parseInt(/\d+$/.exec(attributes.href), 10);
         }
       });
     },
