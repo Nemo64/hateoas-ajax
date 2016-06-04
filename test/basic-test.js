@@ -28,21 +28,40 @@ describe('<hateoas-ajax> basic', function() {
       return tPost;
     };
 
-    server.respondWith('GET', '/posts', function(request) {
+    server.respondWith('/posts', function(request) {
 
-      var postsResponse = _.transform(rawPosts, function(result, post) {
-        result._embedded.posts.push(formPost(post));
-      }, {
-        _embedded: {
-          posts: []
-        },
-        _links: {
-          self: {
-            href: '/posts'
+      var postsResponse;
+      var status;
+      if (/GET/i.test(request.method)) {
+        status = 200;
+        postsResponse = _.transform(rawPosts, function(result, post) {
+          result._embedded.posts.push(formPost(post));
+        }, {
+          _embedded: {
+            posts: []
+          },
+          _links: {
+            self: {
+              href: '/posts'
+            }
           }
-        }
-      });
-      request.respond(200, {
+        });
+      } else if (/POST/i.test(request.method)) {
+        status = 201;
+        postsResponse = _.defaults(JSON.parse(request.requestBody), {
+          _links: {
+            self: {
+              href: '/posts/6'
+            },
+            post: {
+              href: '/posts/6'
+            }
+          }
+        });
+      } else {
+        status = 405;
+      }
+      request.respond(status, {
         'Content-Type': 'application/hal+json'
       }, JSON.stringify(postsResponse));
     });
@@ -50,11 +69,31 @@ describe('<hateoas-ajax> basic', function() {
     server.respondWith(/^\/posts\/(\d+)$/, function(request, id) {
       id = parseInt(id, 10);
 
-      var post = _.find(rawPosts, {
-        id: id
-      });
+      var post = {};
+      var status;
 
-      request.respond(200, {
+      if (/GET/i.test(request.method)) {
+        status = 200;
+        post = _.find(rawPosts, {
+          id: id
+        });
+      } else if (/PUT/i.test(request.method)) {
+        status = 200;
+        post = _.defaults(JSON.parse(request.requestBody), {
+          _links: {
+            self: {
+              href: '/posts/' + id
+            },
+            post: {
+              href: '/posts/' + id
+            }
+          }
+        });
+      } else if (/DELETE/i.test(request.method)) {
+        status = 204;
+      }
+
+      request.respond(status, {
         'Content-Type': 'application/hal+json'
       }, JSON.stringify(formPost(post)));
     });
@@ -77,24 +116,44 @@ describe('<hateoas-ajax> basic', function() {
       return tComment;
     };
 
-    server.respondWith('GET', '/comments', function(request) {
+    server.respondWith('/comments', function(request) {
 
-      var commentsResponse = _.transform(rawComments, function(result, comment) {
-        result._embedded.comments.push(formComment(comment));
-      }, {
-        _embedded: {
-          comments: []
-        },
-        _links: {
-          self: {
-            href: '/comments'
+      var commentsResponse;
+      if (/GET/i === request.method) {
+        commentsResponse = _.transform(rawComments, function(result, comment) {
+          result._embedded.comments.push(formComment(comment));
+        }, {
+          _embedded: {
+            comments: []
+          },
+          _links: {
+            self: {
+              href: '/comments'
+            }
           }
-        }
-      });
+        });
 
-      request.respond(200, {
-        'Content-Type': 'application/hal+json'
-      }, JSON.stringify(commentsResponse));
+        request.respond(200, {
+          'Content-Type': 'application/hal+json'
+        }, JSON.stringify(commentsResponse));
+      } else if (/POST/i === request.method) {
+        commentsResponse = _.defaults(JSON.parse(request.requestBody), {
+          _links: {
+            self: {
+              href: '/comments/51'
+            },
+            comment: {
+              href: '/comments/51'
+            }
+          }
+        });
+
+        request.respond(201, {
+          'Content-Type': 'application/hal+json'
+        }, JSON.stringify(commentsResponse));
+      } else {
+        request.respond(405);
+      }
     });
 
     server.respondWith(/^\/comments\/(\d+)$/, function(request, id) {
@@ -185,6 +244,57 @@ describe('<hateoas-ajax> basic', function() {
         expect(post.deleteComments).to.be.an('function');
         expect(post.postComments).to.be.an('function');
         expect(post.putComments).to.be.an('function');
+      });
+
+      describe('when using put handler (update resource)', function() {
+
+        var request;
+
+        before(function() {
+          request = post.putPost({
+            "userId": 1,
+            "title": "sunt aut facere repellat provident occaecati excepturi optio reprehenderit"
+          });
+        });
+
+        it('should be able to update resource', function(done) {
+          expect(xhrSpy).to.be.calledOnce;
+
+          request.lastRequest.completes.then(function() {
+            expect(xhrSpy.getCall(0).args[0].status).to.equal(200);
+            done();
+          })['catch'](function(e) {
+            done(e);
+          });
+        });
+
+        afterEach(function() {
+          xhrSpy.reset();
+        });
+      });
+
+      describe('when using delete handler (delete resource)', function() {
+
+        var request;
+
+        before(function() {
+          request = post.deletePost();
+        });
+
+        it('should be able to delete resource', function(done) {
+          expect(xhrSpy).to.be.calledOnce;
+
+          request.lastRequest.completes.then(function() {
+            expect(xhrSpy.getCall(0).args[0].status).to.equal(204);
+            done();
+          })['catch'](function(e) {
+            done(e);
+          });
+        });
+
+        afterEach(function() {
+          xhrSpy.reset();
+        });
       });
 
       afterEach(function() {
@@ -301,6 +411,38 @@ describe('<hateoas-ajax> basic', function() {
       xhrSpy.reset();
     });
 
+  });
+
+  describe('when creating a resource (POST)', function() {
+
+    var posts;
+    var postRequest;
+
+    before(function(done) {
+      posts = fixture('posts');
+      posts.generateRequest().completes.then(function(request) {
+        postRequest = request.response.postSelf({
+          "userId": 1,
+          "title": "sunt aut facere repellat provident occaecati excepturi optio reprehenderit"
+        });
+        done();
+      });
+    });
+
+    it('should be able to create new resource', function(done) {
+      expect(xhrSpy).to.be.calledTwice;
+
+      postRequest.lastRequest.completes.then(function() {
+        expect(xhrSpy.getCall(1).args[0].status).to.equal(201);
+        done();
+      })['catch'](function(e) {
+        done(e);
+      });
+    });
+
+    afterEach(function() {
+      xhrSpy.reset();
+    });
   });
 
   after(function() {
