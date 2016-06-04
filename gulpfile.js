@@ -14,7 +14,8 @@ gulp.task('jshint', function () {
   return gulp.src(src)
     .pipe($.jshint.extract()) // Extract JS from .html files
     .pipe($.jshint())
-    .pipe($.jshint.reporter('jshint-stylish'));
+    .pipe($.jshint.reporter('jshint-stylish'))
+    .pipe($.jshint.reporter('fail'));
 });
 
 gulp.task('bump', function(){

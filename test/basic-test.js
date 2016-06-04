@@ -252,8 +252,8 @@ describe('<hateoas-ajax> basic', function() {
 
         before(function() {
           request = post.putPost({
-            "userId": 1,
-            "title": "sunt aut facere repellat provident occaecati excepturi optio reprehenderit"
+            'userId': 1,
+            'title': 'sunt aut facere repellat provident occaecati excepturi optio reprehenderit'
           });
         });
 
@@ -422,8 +422,8 @@ describe('<hateoas-ajax> basic', function() {
       posts = fixture('posts');
       posts.generateRequest().completes.then(function(request) {
         postRequest = request.response.postSelf({
-          "userId": 1,
-          "title": "sunt aut facere repellat provident occaecati excepturi optio reprehenderit"
+          userId: 1,
+          title: 'sunt aut facere repellat provident occaecati excepturi optio reprehenderit'
         });
         done();
       });
