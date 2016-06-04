@@ -1,30 +1,24 @@
 language: node_js
+sudo: required
+before_script:
+- npm install -g bower web-component-tester
+- bower install
+env:
+  global:
+  - secure: gZ5vpMlc9fuKSZeMmT6xf4+FIVWxET6f6Lkp6l5Qo9vL2X/KC/bMJF1v2w5xXFLFTdm/hPUDkeQRDUBBJhGcsXhJeWIvAXdPkObV9ZPRwpDnnN1qU5lOqVIy6gFjDm2Wm6UNXcRnyP1TrGpMwbG13EUtD0rF8LZqBm3B833sKS4=
+  - secure: DObDewETPYiIsASeC3UETPbQ6YBniRZdNV2eTM1xULvuFNDxXJD09KKyWOiMduublEIJRXLjBIXmD8cbVsgrbRUYA4bxcXffDeuc6q6HaQGU9HvIbLz6o3/oxi4fX2G9GwrZtijW2p2Rgw2l9koR3ovjcM97CSTWFUMh5rtXag8=
+node_js: stable
 addons:
   firefox: latest
   apt:
     sources:
     - google-chrome
-    - ubuntu-toolchain-r-test
     packages:
     - google-chrome-stable
-    - g++-4.8
-node_js:
-- '0.12'
-- '4.2'
-- '5.1'
-before_script:
-- export DISPLAY=:99.0
-- sh -e /etc/init.d/xvfb start
-- sleep 3
-- npm i -g bower@1.7.1 gulp@3.9.0 firebase-tools@2.2.0
-- bower i
 script:
 - gulp
-- gulp test:local
+- xvfb-run wct
+dist: trusty
 branches:
   except:
   - gh-pages
-env:
-  global:
-  - CXX='g++-4.8'
-  - secure: SbcQ7plU7aRGQlaAG2ffMhSvEs84073YSljOQ62DZAjRxgizMhF4xM7H2mPrmac9YRM4IBrQRvBKMMZy3L6OhN8gwpm8o+w2zV+5Q1fwpY9V8bilznnhp1JUY6jrB2l7aLTOFxt/cG+5ABxiupwWz/n+I7BaByYhBiHWntIBgDc528eecRNDYI5R36KWjLO/yr+SdElvyxDlDOdJGaluPvgMItbinFGcE1hYb/Jqrkkw8zpE6CTDmvMOq1aRBWSo9afgh2zDeKc02lTYP/4N0xcn8CqzHF7k5zGWHjN9DR8Ep8Bp1ff/sM7zHGZBqgVhn5WGv305jBQY6eOxiTp5cDP0WVIOjgJeM5rBu9hBQxhZSaMKBPr2B1NYUjIwTVQkBsnR4sr095Ugjg8JCZAmEevf/Ysl4CzQyW3gT+WcEluqjxUuicQWDclH6L/kOVPBJ+Eqdo/LY3G1tpLcc6fsvj4FlVO6LPTrbMyCagwQvnjX3uIdFyuthqtWWrHKQMGx2Ow9suNUi8Hyvk7WboS1Z6jrLIcs1rvXSX8rQmlMR5vJBK3Ejg6fS1OHxn/lrtLhj4lDLB9r/Fcu2PEHT1lcvQqsTa3W+t4Fk1qaShUlBDiwMbZWZgmlf1SdG5OzK1yrPLjTTdRFdqJGgb6TANCdetgczRWynvjIhr5IDMxvfJg=
