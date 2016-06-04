@@ -6,6 +6,7 @@ var $ = require('gulp-load-plugins')();
 var runSequence = require('run-sequence');
 var bump = require('gulp-bump');
 var src = ['hateoas-ajax.html',
+           'iron-ajax-behavior.html',
            'test/*.js',
            'test/*.html'];
 
