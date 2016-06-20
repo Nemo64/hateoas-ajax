@@ -215,10 +215,18 @@ Example:
      * @param {Object} attributes self link attributes
      */
     _createIdProperty: function(object, attributes) {
+      var _id;
       Object.defineProperty(object, 'id', {
         get: function() {
-          return parseInt(/\d+$/.exec(attributes.href), 10);
-        }
+          if(!_id) {
+            _id = parseInt(/\d+$/.exec(attributes.href), 10);
+          }
+          return _id;
+        },
+        set: function(i) {
+          _id = i;
+        },
+        configurable: true
       });
     },
 
